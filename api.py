@@ -160,17 +160,23 @@ class Battleship(remote.Service):
 
         games = Game.query(Game.user == user.key).fetch()
         # Checks if the user has any games
+        game_length = len(games)
+        count = 0
         if games:
             for game in games:
                 if game.game_over is True:
-                    raise endpoints.NotFoundException('Completed all games!')
+                    count += 1
 
-            # Iterates through games and checks if game_over == False
-            # Shows only games that are not finished
-            return UserActiveGamesForms(
-                items=[game.active_form('Time to make a move')
-                        for game in games if game.game_over is False]
-            )
+            if game_length == count:
+                raise endpoints.NotFoundException('Completed all games!')
+
+            else:
+                # Iterates through games and checks if game_over == False
+                # Shows only games that are not finished
+                return UserActiveGamesForms(
+                    items=[game.active_form('Time to make a move')
+                            for game in games if game.game_over is False]
+                )
         else:
             raise endpoints.NotFoundException('Game not found!')
 
