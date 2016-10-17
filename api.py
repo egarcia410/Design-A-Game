@@ -88,6 +88,11 @@ class Battleship(remote.Service):
             raise endpoints.NotFoundException('Invalid Game Key!!!!!')
 
         game = get_by_urlsafe(request.urlsafe_game_key, Game)
+
+        # Check if game exists
+        if not game:
+            raise endpoints.NotFoundException('Game Does Not Exist')
+
         user_key = Game.query(Game.user == game.user).get()
         score = Score.query(Score.user == user_key.user).get()
         # Creates a Score Model for the user if one does not exist
@@ -96,10 +101,6 @@ class Battleship(remote.Service):
             game.put()
 
         score = Score.query(Score.user == user_key.user).get()
-
-        # Check if game exists
-        if not game:
-            raise endpoints.NotFoundException('Game Does Not Exist')
 
         # Checks if game is already over
         if game.game_over:
@@ -157,18 +158,21 @@ class Battleship(remote.Service):
         if not user:
             raise endpoints.NotFoundException('Invalid User!')
 
-        if user:
-            games = Game.query(Game.user == user.key).fetch()
-            # Checks if the user has any games
-            if games:
-                # Iterates through games and checks if game_over == False
-                # Shows only games that are not finished
-                return UserActiveGamesForms(
-                    items=[game.active_form('Time to make a move')
-                            for game in games if game.game_over is False]
-                )
-            else:
-                raise endpoints.NotFoundException('Game not found!')
+        games = Game.query(Game.user == user.key).fetch()
+        # Checks if the user has any games
+        if games:
+            for game in games:
+                if game.game_over is True:
+                    raise endpoints.NotFoundException('Completed all games!')
+
+            # Iterates through games and checks if game_over == False
+            # Shows only games that are not finished
+            return UserActiveGamesForms(
+                items=[game.active_form('Time to make a move')
+                        for game in games if game.game_over is False]
+            )
+        else:
+            raise endpoints.NotFoundException('Game not found!')
 
     @endpoints.method(request_message=GET_GAME_REQUEST,
                       response_message=StringMessage,
@@ -177,8 +181,6 @@ class Battleship(remote.Service):
                       http_method='GET')
     def cancel_game(self, request):
         """Delete a game in progress"""
-        if len(request.urlsafe_game_key) != 51:
-            raise endpoints.NotFoundException('Invalid Game Key!!!!!')
 
         game = get_by_urlsafe(request.urlsafe_game_key, Game)
 
@@ -199,6 +201,8 @@ class Battleship(remote.Service):
     def get_high_scores(self, request):
         """Returns users high scores, Most wins"""
         scores = Score.query().order(-Score.victories).fetch(limit=5)
+        if not scores:
+            raise endpoints.NotFoundException('No Scores Available')
         return HighScoreForms(items=[score.high_scores() for score in scores])
 
     @endpoints.method(response_message=UserRankingForms,
@@ -208,6 +212,8 @@ class Battleship(remote.Service):
     def get_user_rankings(self, request):
         """Returns users ranking, Percentage of Wins"""
         scores = Score.query().order(-Score.percentage).fetch(limit=5)
+        if not scores:
+            raise endpoints.NotFoundException('No Scores Available')
         return UserRankingForms(items=[score.user_rankings()
                                 for score in scores])
 
@@ -219,6 +225,8 @@ class Battleship(remote.Service):
     def get_game_history(self, request):
         """Returns all users game history"""
         user = User.query(User.name == request.user_name).get()
+        if not user:
+            raise endpoints.NotFoundException('User Does Not Exist')
         games = Game.query(Game.user == user.key).fetch()
         return HistoryGameForms(items=[game.history_form() for game in games])
 
